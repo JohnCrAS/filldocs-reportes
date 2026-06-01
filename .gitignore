@@ -1,0 +1,11 @@
+*.pdf
+*.pptx
+*.xlsx
+*.xls
+*.xlsm
+server.log
+server.err.log
+qa-*.pdf
+qa-*.png
+extracted-*
+assets/*-source.jpg

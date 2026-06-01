@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rendición de cuentas | La Calle de las Sirenas</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true">LC</div>
+          <div>
+            <p class="eyebrow">La Calle de las Sirenas</p>
+            <h1>Rendición de cuentas</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <label class="select-label">
+            Documento
+            <select id="documentTypeSelect" name="documentType">
+              <option value="rdc">Rendición de Cuentas</option>
+              <option value="results">RESULTADOS DE ENERO 2026</option>
+            </select>
+          </label>
+          <label class="select-label">
+            Formato
+            <select id="brandSelect" name="brand">
+              <option value="la-calle">La Calle de las Sirenas</option>
+            </select>
+          </label>
+          <button class="ghost-button" id="resetButton" type="button">
+            <span aria-hidden="true">↺</span>
+            Limpiar
+          </button>
+          <button class="primary-button" id="printButton" type="button">
+            <span aria-hidden="true">⬇</span>
+            Exportar PDF
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <form class="input-panel mode-form" id="reportForm" data-mode="rdc">
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">01</span>
+              <h2>Datos del reporte</h2>
+            </div>
+            <div class="field-grid two">
+              <label>
+                Gerente
+                <input name="managerName" autocomplete="name" placeholder="Nombre del gerente" />
+              </label>
+              <label>
+                Líder de servicio
+                <input name="serviceLeader" placeholder="Nombre del líder" />
+              </label>
+              <label>
+                Semana
+                <input name="weekLabel" placeholder="Semana 21" />
+              </label>
+              <label>
+                Periodo
+                <input name="periodLabel" placeholder="Del 20 al 26 de mayo de 2026" />
+              </label>
+              <label>
+                Meta mensual
+                <input name="monthlyGoal" type="number" min="0" step="1000" value="1000000" />
+              </label>
+              <label>
+                Meta semanal base
+                <input name="weeklyGoal" type="number" min="0" step="1000" value="250000" />
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">02</span>
+              <h2>Antecedente</h2>
+            </div>
+            <div class="field-grid four">
+              <label>
+                Recompra anterior
+                <input name="previousRepurchase" type="number" min="0" step="100" />
+              </label>
+              <label>
+                Venta anterior
+                <input name="previousSales" type="number" min="0" step="100" />
+              </label>
+              <label>
+                Aforo anterior
+                <input name="previousGuests" type="number" min="0" step="1" />
+              </label>
+              <label>
+                Cheque anterior
+                <input name="previousCheck" type="number" min="0" step="1" />
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">03</span>
+              <h2>Resultados semanales</h2>
+            </div>
+            <div class="week-table-wrap">
+              <table class="input-table" id="weeksTable">
+                <thead>
+                  <tr>
+                    <th>Semana</th>
+                    <th>Venta</th>
+                    <th>Meta</th>
+                    <th>PX</th>
+                    <th>Recompra</th>
+                    <th>Venta alimentos</th>
+                  </tr>
+                </thead>
+                <tbody id="weeksBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">04</span>
+              <h2>Indicadores de operación</h2>
+            </div>
+            <div class="score-grid" id="scoreInputs"></div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">05</span>
+              <h2>Lectura gerencial</h2>
+            </div>
+            <div class="note-tabs" role="tablist" aria-label="Secciones narrativas">
+              <button class="note-tab active" data-tab="worked" type="button">Funcionó</button>
+              <button class="note-tab" data-tab="blocked" type="button">Faltó</button>
+              <button class="note-tab" data-tab="commitments" type="button">Compromisos</button>
+            </div>
+            <div id="narrativeFields"></div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">06</span>
+              <h2>Plantilla</h2>
+            </div>
+            <div class="staff-table-wrap">
+              <table class="input-table compact" id="staffTable">
+                <thead>
+                  <tr>
+                    <th>Puesto</th>
+                    <th>Requerida</th>
+                    <th>Actual</th>
+                  </tr>
+                </thead>
+                <tbody id="staffBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </form>
+
+        <form class="input-panel mode-form is-hidden" id="resultsForm" data-mode="results">
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">01</span>
+              <h2>Datos del concentrado</h2>
+            </div>
+            <div class="field-grid two">
+              <label>
+                Responsable
+                <input name="resultsManager" autocomplete="name" placeholder="Nombre del gerente" />
+              </label>
+              <label>
+                Título del reporte
+                <input name="resultsTitle" value="RESULTADOS DE ENERO 2026" />
+              </label>
+              <label>
+                Semana
+                <input name="resultsWeek" value="Semana 4" />
+              </label>
+              <label>
+                Periodo
+                <input name="resultsPeriod" value="Del 19 al 25 de enero de 2026" />
+              </label>
+              <label>
+                Propina
+                <input name="tipRate" type="number" min="0" max="100" step="1" value="12" />
+              </label>
+              <label>
+                Meta venta
+                <input name="resultsSalesGoal" type="number" min="0" step="1000" value="250000" />
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">02</span>
+              <h2>Metas de producto</h2>
+            </div>
+            <div class="field-grid four" id="productGoalInputs"></div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <span class="step-number">03</span>
+              <h2>Captura por vendedor</h2>
+            </div>
+            <div class="week-table-wrap">
+              <table class="input-table results-input-table" id="sellerTable">
+                <thead>
+                  <tr>
+                    <th>Vendedor</th>
+                    <th>Venta</th>
+                    <th>PX</th>
+                    <th>Venta alim.</th>
+                    <th>Misil/Moet</th>
+                    <th>Bot. premium</th>
+                    <th>Perlas</th>
+                    <th>Botana</th>
+                    <th>Molcajete</th>
+                    <th>Souvenir</th>
+                    <th>Reseñas</th>
+                  </tr>
+                </thead>
+                <tbody id="sellerBody"></tbody>
+              </table>
+            </div>
+            <button class="ghost-button inline-action" id="addSellerButton" type="button">
+              <span aria-hidden="true">+</span>
+              Agregar vendedor
+            </button>
+          </section>
+        </form>
+
+        <aside class="preview-panel" aria-label="Vista previa del reporte">
+          <div class="preview-toolbar">
+            <div>
+              <p class="eyebrow">Vista previa</p>
+              <h2>PDF generado</h2>
+            </div>
+            <span id="draftStatus">Borrador local</span>
+          </div>
+          <div class="report-stage">
+            <article class="report" id="report"></article>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
