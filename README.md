@@ -36,3 +36,7 @@ https://TU_USUARIO.github.io/NOMBRE_DEL_REPO/
 Este repo debe contener solo la app estatica. No subas los PPTX, PDF ni XLSX originales.
 
 La app guarda borradores localmente en el navegador del gerente usando `localStorage`. No hay base de datos todavia.
+
+## Exportar en celular
+
+El boton `Exportar PDF` genera y descarga el PDF directamente desde el navegador. En iPhone/iPad, Safari puede abrir el PDF en una pestaña nueva; desde ahi usa el boton de compartir para guardarlo en Archivos o enviarlo.

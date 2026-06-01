@@ -1272,6 +1272,141 @@ function renderActive() {
   else renderRdcReport();
 }
 
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function pdfFileName() {
+  const mode = documentTypeSelect.value;
+  const source = mode === "results" ? collectResults() : collectRdc();
+  const rawName = mode === "results"
+    ? source.resultsTitle || "resultados-enero-2026"
+    : `rendicion-cuentas-${source.weekLabel || source.periodLabel || "reporte"}`;
+  const slug = rawName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 72);
+  return `${slug || "reporte"}.pdf`;
+}
+
+function setExportBusy(isBusy) {
+  const button = document.querySelector("#printButton");
+  if (!button.dataset.defaultHtml) button.dataset.defaultHtml = button.innerHTML;
+  button.disabled = isBusy;
+  button.setAttribute("aria-busy", String(isBusy));
+  button.innerHTML = isBusy
+    ? '<span aria-hidden="true">…</span> Generando PDF'
+    : button.dataset.defaultHtml;
+  if (isBusy) draftStatus.textContent = "Generando PDF...";
+  else if (draftStatus.textContent === "Generando PDF...") draftStatus.textContent = "Borrador guardado";
+}
+
+async function waitForReportAssets() {
+  const images = [...report.querySelectorAll("img")];
+  await Promise.all(images.map(async (image) => {
+    if (image.complete && image.naturalWidth > 0) return;
+    if (image.decode) {
+      try {
+        await image.decode();
+        return;
+      } catch {
+        // Fall through to load/error listeners.
+      }
+    }
+    await new Promise((resolve) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    });
+  }));
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+function downloadBlob(blob, filename, iosWindow) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  if (iosWindow && !iosWindow.closed) {
+    iosWindow.location.href = url;
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+async function exportPdfDownload() {
+  const iosWindow = isIOSDevice() ? window.open("", "_blank") : null;
+  if (iosWindow) {
+    iosWindow.document.write("<!doctype html><title>Generando PDF</title><p style=\"font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:24px;\">Generando PDF...</p>");
+  }
+
+  setExportBusy(true);
+  try {
+    if (!window.html2canvas || !window.jspdf?.jsPDF) {
+      throw new Error("PDF libraries unavailable");
+    }
+
+    renderActive();
+    await waitForReportAssets();
+
+    const stage = document.querySelector(".report-stage");
+    const previousScale = stage.style.getPropertyValue("--preview-scale");
+    stage.style.setProperty("--preview-scale", "1");
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const pages = [...report.querySelectorAll(".report-page")];
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "letter",
+      compress: true,
+    });
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const captureScale = Math.min(1.6, Math.max(1.25, window.devicePixelRatio || 1.4));
+
+    for (const [index, page] of pages.entries()) {
+      const canvas = await window.html2canvas(page, {
+        backgroundColor: "#ffffff",
+        scale: captureScale,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        width: page.offsetWidth,
+        height: page.offsetHeight,
+        windowWidth: Math.max(document.documentElement.scrollWidth, page.offsetWidth),
+        windowHeight: Math.max(document.documentElement.scrollHeight, page.offsetHeight),
+      });
+      const image = canvas.toDataURL("image/jpeg", 0.92);
+      if (index > 0) pdf.addPage("letter", "landscape");
+      pdf.addImage(image, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
+    }
+
+    if (previousScale) stage.style.setProperty("--preview-scale", previousScale);
+    else setPreviewScale();
+
+    const blob = pdf.output("blob");
+    downloadBlob(blob, pdfFileName(), iosWindow);
+    draftStatus.textContent = "PDF generado";
+  } catch {
+    if (iosWindow && !iosWindow.closed) iosWindow.close();
+    window.alert("No se pudo descargar el PDF automáticamente. Se abrirá el diálogo de impresión para guardar como PDF.");
+    renderActive();
+    window.setTimeout(() => window.print(), 80);
+  } finally {
+    setExportBusy(false);
+  }
+}
+
 function setMode(mode) {
   documentTypeSelect.value = mode;
   reportForm.classList.toggle("is-hidden", mode !== "rdc");
@@ -1332,10 +1467,7 @@ function bindEvents() {
     renderResultsReport();
   });
 
-  document.querySelector("#printButton").addEventListener("click", () => {
-    renderActive();
-    window.setTimeout(() => window.print(), 80);
-  });
+  document.querySelector("#printButton").addEventListener("click", exportPdfDownload);
 
   document.querySelector("#resetButton").addEventListener("click", () => {
     const ok = window.confirm("¿Limpiar el borrador local de este documento?");

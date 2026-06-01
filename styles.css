@@ -168,6 +168,12 @@ textarea:focus {
   border: 1px solid var(--ink);
 }
 
+.primary-button:disabled,
+.ghost-button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .ghost-button {
   color: var(--ink);
   background: transparent;
