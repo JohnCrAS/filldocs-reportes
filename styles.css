@@ -211,6 +211,18 @@ textarea:focus {
   box-shadow: 0 10px 26px rgba(30, 24, 16, 0.06);
 }
 
+.form-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 4px 0 2px;
+}
+
+.form-footer-actions .export-button {
+  min-width: 190px;
+  box-shadow: 0 12px 26px rgba(23, 23, 23, 0.16);
+}
+
 .section-heading {
   display: flex;
   align-items: center;

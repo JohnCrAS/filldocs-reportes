@@ -76,6 +76,7 @@ const STORAGE_KEYS = {
   rdc: "rdc-la-calle-draft-v2",
   results: "resultados-enero-draft-v1",
 };
+const APP_STATE_KEY = "filldocs-la-calle-local-account-v1";
 
 const documentTypeSelect = document.querySelector("#documentTypeSelect");
 const brandSelect = document.querySelector("#brandSelect");
@@ -1250,9 +1251,27 @@ function setPreviewScale() {
   stage.style.setProperty("--preview-scale", String(scale));
 }
 
+function loadAppState() {
+  try {
+    return JSON.parse(localStorage.getItem(APP_STATE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveAppState(patch = {}) {
+  const current = loadAppState();
+  localStorage.setItem(APP_STATE_KEY, JSON.stringify({
+    ...current,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  }));
+}
+
 function saveDraft(mode, data) {
   localStorage.setItem(STORAGE_KEYS[mode], JSON.stringify(data));
-  draftStatus.textContent = "Borrador guardado";
+  saveAppState({ activeMode: mode });
+  draftStatus.textContent = "Guardado en este navegador";
 }
 
 function loadDraft(mode) {
@@ -1270,6 +1289,12 @@ function renderActive() {
   const mode = documentTypeSelect.value;
   if (mode === "results") renderResultsReport();
   else renderRdcReport();
+}
+
+function persistActiveDraft() {
+  const mode = documentTypeSelect.value;
+  const data = mode === "results" ? collectResults() : collectRdc();
+  saveDraft(mode, data);
 }
 
 function isIOSDevice() {
@@ -1294,15 +1319,16 @@ function pdfFileName() {
 }
 
 function setExportBusy(isBusy) {
-  const button = document.querySelector("#printButton");
-  if (!button.dataset.defaultHtml) button.dataset.defaultHtml = button.innerHTML;
-  button.disabled = isBusy;
-  button.setAttribute("aria-busy", String(isBusy));
-  button.innerHTML = isBusy
-    ? '<span aria-hidden="true">…</span> Generando PDF'
-    : button.dataset.defaultHtml;
+  document.querySelectorAll("[data-export-pdf]").forEach((button) => {
+    if (!button.dataset.defaultHtml) button.dataset.defaultHtml = button.innerHTML;
+    button.disabled = isBusy;
+    button.setAttribute("aria-busy", String(isBusy));
+    button.innerHTML = isBusy
+      ? '<span aria-hidden="true">…</span> Generando PDF'
+      : button.dataset.defaultHtml;
+  });
   if (isBusy) draftStatus.textContent = "Generando PDF...";
-  else if (draftStatus.textContent === "Generando PDF...") draftStatus.textContent = "Borrador guardado";
+  else if (draftStatus.textContent === "Generando PDF...") draftStatus.textContent = "Guardado en este navegador";
 }
 
 async function waitForReportAssets() {
@@ -1412,7 +1438,8 @@ function setMode(mode) {
   reportForm.classList.toggle("is-hidden", mode !== "rdc");
   resultsForm.classList.toggle("is-hidden", mode !== "results");
   topbarTitle.textContent = mode === "results" ? "Resultados de Enero 2026" : "Rendición de cuentas";
-  draftStatus.textContent = "Borrador local";
+  saveAppState({ activeMode: mode });
+  draftStatus.textContent = "Guardado en este navegador";
   renderActive();
 }
 
@@ -1432,7 +1459,15 @@ function bindEvents() {
     if (documentTypeSelect.value === "rdc") renderRdcReport();
   });
 
+  reportForm.addEventListener("change", () => {
+    if (documentTypeSelect.value === "rdc") renderRdcReport();
+  });
+
   resultsForm.addEventListener("input", () => {
+    if (documentTypeSelect.value === "results") renderResultsReport();
+  });
+
+  resultsForm.addEventListener("change", () => {
     if (documentTypeSelect.value === "results") renderResultsReport();
   });
 
@@ -1467,7 +1502,9 @@ function bindEvents() {
     renderResultsReport();
   });
 
-  document.querySelector("#printButton").addEventListener("click", exportPdfDownload);
+  document.querySelectorAll("[data-export-pdf]").forEach((button) => {
+    button.addEventListener("click", exportPdfDownload);
+  });
 
   document.querySelector("#resetButton").addEventListener("click", () => {
     const ok = window.confirm("¿Limpiar el borrador local de este documento?");
@@ -1479,6 +1516,10 @@ function bindEvents() {
     if (documentTypeSelect.value === "results") drawResultsCharts(calculateResults(collectResults()));
     else drawRdcCharts(calculateRdc(collectRdc()));
   });
+  window.addEventListener("pagehide", persistActiveDraft);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") persistActiveDraft();
+  });
   window.addEventListener("beforeprint", renderActive);
 }
 
@@ -1487,5 +1528,9 @@ buildResultsForm();
 setRdcFormData(loadDraft("rdc"));
 setResultsFormData(loadDraft("results"));
 bindEvents();
-const initialMode = new URLSearchParams(window.location.search).get("mode") === "results" ? "results" : "rdc";
+const requestedMode = new URLSearchParams(window.location.search).get("mode");
+const savedMode = loadAppState().activeMode;
+const initialMode = requestedMode === "results" || requestedMode === "rdc"
+  ? requestedMode
+  : (savedMode === "results" ? "results" : "rdc");
 setMode(initialMode);

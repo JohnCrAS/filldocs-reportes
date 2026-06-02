@@ -34,7 +34,7 @@
             <span aria-hidden="true">↺</span>
             Limpiar
           </button>
-          <button class="primary-button" id="printButton" type="button">
+          <button class="primary-button export-button" id="printButton" type="button" data-export-pdf>
             <span aria-hidden="true">⬇</span>
             Exportar PDF
           </button>
@@ -162,6 +162,12 @@
               </table>
             </div>
           </section>
+          <div class="form-footer-actions">
+            <button class="primary-button export-button" type="button" data-export-pdf>
+              <span aria-hidden="true">⬇</span>
+              Exportar PDF
+            </button>
+          </div>
         </form>
 
         <form class="input-panel mode-form is-hidden" id="resultsForm" data-mode="results">
@@ -236,6 +242,12 @@
               Agregar vendedor
             </button>
           </section>
+          <div class="form-footer-actions">
+            <button class="primary-button export-button" type="button" data-export-pdf>
+              <span aria-hidden="true">⬇</span>
+              Exportar PDF
+            </button>
+          </div>
         </form>
 
         <aside class="preview-panel" aria-label="Vista previa del reporte">

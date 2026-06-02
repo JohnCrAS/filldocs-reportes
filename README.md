@@ -35,7 +35,7 @@ https://TU_USUARIO.github.io/NOMBRE_DEL_REPO/
 
 Este repo debe contener solo la app estatica. No subas los PPTX, PDF ni XLSX originales.
 
-La app guarda borradores localmente en el navegador del gerente usando `localStorage`. No hay base de datos todavia.
+La app usa una sola cuenta local por navegador. Guarda borradores automaticamente con `localStorage`, recuerda el ultimo documento abierto y conserva la informacion despues de refrescar la pagina. No hay login ni base de datos todavia; para cuentas reales entre varios gerentes se necesitara agregar backend.
 
 ## Exportar en celular
 
