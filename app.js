@@ -72,11 +72,23 @@ const RESULT_SELLERS = [
   "BRANDO ONTIVEROS",
 ];
 
-const STORAGE_KEYS = {
+const AUTH_ACCOUNT = {
+  username: "Ritchie68",
+  password: "Sirenas2026!",
+  accountId: "ritchie68",
+};
+const AUTH_SESSION_KEY = "filldocs-auth-session-v1";
+const ACCOUNT_PREFIX = `filldocs-account-${AUTH_ACCOUNT.accountId}`;
+const LEGACY_STORAGE_KEYS = {
   rdc: "rdc-la-calle-draft-v2",
   results: "resultados-enero-draft-v1",
 };
-const APP_STATE_KEY = "filldocs-la-calle-local-account-v1";
+const LEGACY_APP_STATE_KEY = "filldocs-la-calle-local-account-v1";
+const STORAGE_KEYS = {
+  rdc: `${ACCOUNT_PREFIX}-rdc-draft-v1`,
+  results: `${ACCOUNT_PREFIX}-results-draft-v1`,
+};
+const APP_STATE_KEY = `${ACCOUNT_PREFIX}-state-v1`;
 
 const documentTypeSelect = document.querySelector("#documentTypeSelect");
 const brandSelect = document.querySelector("#brandSelect");
@@ -91,6 +103,12 @@ const productGoalInputs = document.querySelector("#productGoalInputs");
 const sellerBody = document.querySelector("#sellerBody");
 const draftStatus = document.querySelector("#draftStatus");
 const topbarTitle = document.querySelector(".topbar h1");
+const loginForm = document.querySelector("#loginForm");
+const loginUser = document.querySelector("#loginUser");
+const loginPassword = document.querySelector("#loginPassword");
+const loginError = document.querySelector("#loginError");
+const logoutButton = document.querySelector("#logoutButton");
+let appReady = false;
 
 function money(value) {
   const number = Number(value) || 0;
@@ -1251,12 +1269,91 @@ function setPreviewScale() {
   stage.style.setProperty("--preview-scale", String(scale));
 }
 
-function loadAppState() {
+function readJson(key, fallback = null) {
   try {
-    return JSON.parse(localStorage.getItem(APP_STATE_KEY)) || {};
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return {};
+    return fallback;
   }
+}
+
+function hasActiveSession() {
+  const session = readJson(AUTH_SESSION_KEY, {});
+  return session?.accountId === AUTH_ACCOUNT.accountId && session?.username === AUTH_ACCOUNT.username;
+}
+
+function setActiveSession() {
+  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({
+    accountId: AUTH_ACCOUNT.accountId,
+    username: AUTH_ACCOUNT.username,
+    signedInAt: new Date().toISOString(),
+  }));
+}
+
+function migrateAccountDrafts() {
+  const migrationKey = `${ACCOUNT_PREFIX}-migration-v1`;
+  if (localStorage.getItem(migrationKey)) return;
+
+  Object.entries(LEGACY_STORAGE_KEYS).forEach(([mode, legacyKey]) => {
+    const legacyDraft = localStorage.getItem(legacyKey);
+    if (legacyDraft && !localStorage.getItem(STORAGE_KEYS[mode])) {
+      localStorage.setItem(STORAGE_KEYS[mode], legacyDraft);
+    }
+  });
+
+  const legacyState = localStorage.getItem(LEGACY_APP_STATE_KEY);
+  if (legacyState && !localStorage.getItem(APP_STATE_KEY)) {
+    localStorage.setItem(APP_STATE_KEY, legacyState);
+  }
+
+  localStorage.setItem(migrationKey, "true");
+}
+
+function showLogin(message = "") {
+  document.body.classList.remove("is-authenticated");
+  loginError.textContent = message;
+  loginPassword.value = "";
+  window.setTimeout(() => loginUser.focus(), 0);
+}
+
+function showApp() {
+  document.body.classList.add("is-authenticated");
+  loginError.textContent = "";
+}
+
+function handleLoginSubmit(event) {
+  event.preventDefault();
+  const username = loginUser.value.trim();
+  const password = loginPassword.value;
+  const validUser = username.toLowerCase() === AUTH_ACCOUNT.username.toLowerCase();
+  const validPassword = password === AUTH_ACCOUNT.password;
+
+  if (!validUser || !validPassword) {
+    showLogin("Usuario o contraseña incorrectos.");
+    return;
+  }
+
+  loginUser.value = AUTH_ACCOUNT.username;
+  setActiveSession();
+  migrateAccountDrafts();
+  showApp();
+  initializeApp();
+}
+
+function handleLogout() {
+  if (appReady) persistActiveDraft();
+  localStorage.removeItem(AUTH_SESSION_KEY);
+  showLogin("Sesión cerrada.");
+}
+
+function bindAuthEvents() {
+  loginForm.addEventListener("submit", handleLoginSubmit);
+  logoutButton.addEventListener("click", handleLogout);
+}
+
+function loadAppState() {
+  return readJson(APP_STATE_KEY, {});
 }
 
 function saveAppState(patch = {}) {
@@ -1271,7 +1368,7 @@ function saveAppState(patch = {}) {
 function saveDraft(mode, data) {
   localStorage.setItem(STORAGE_KEYS[mode], JSON.stringify(data));
   saveAppState({ activeMode: mode });
-  draftStatus.textContent = "Guardado en este navegador";
+  draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username}`;
 }
 
 function loadDraft(mode) {
@@ -1328,7 +1425,7 @@ function setExportBusy(isBusy) {
       : button.dataset.defaultHtml;
   });
   if (isBusy) draftStatus.textContent = "Generando PDF...";
-  else if (draftStatus.textContent === "Generando PDF...") draftStatus.textContent = "Guardado en este navegador";
+  else if (draftStatus.textContent === "Generando PDF...") draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username}`;
 }
 
 async function waitForReportAssets() {
@@ -1439,7 +1536,7 @@ function setMode(mode) {
   resultsForm.classList.toggle("is-hidden", mode !== "results");
   topbarTitle.textContent = mode === "results" ? "Resultados de Enero 2026" : "Rendición de cuentas";
   saveAppState({ activeMode: mode });
-  draftStatus.textContent = "Guardado en este navegador";
+  draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username}`;
   renderActive();
 }
 
@@ -1507,7 +1604,7 @@ function bindEvents() {
   });
 
   document.querySelector("#resetButton").addEventListener("click", () => {
-    const ok = window.confirm("¿Limpiar el borrador local de este documento?");
+    const ok = window.confirm(`¿Limpiar el borrador guardado de ${AUTH_ACCOUNT.username} para este documento?`);
     if (ok) resetActiveDraft();
   });
 
@@ -1523,14 +1620,39 @@ function bindEvents() {
   window.addEventListener("beforeprint", renderActive);
 }
 
-buildRdcForm();
-buildResultsForm();
-setRdcFormData(loadDraft("rdc"));
-setResultsFormData(loadDraft("results"));
-bindEvents();
-const requestedMode = new URLSearchParams(window.location.search).get("mode");
-const savedMode = loadAppState().activeMode;
-const initialMode = requestedMode === "results" || requestedMode === "rdc"
-  ? requestedMode
-  : (savedMode === "results" ? "results" : "rdc");
-setMode(initialMode);
+function initializeApp() {
+  if (appReady) {
+    renderActive();
+    return;
+  }
+
+  buildRdcForm();
+  buildResultsForm();
+  setRdcFormData(loadDraft("rdc"));
+  setResultsFormData(loadDraft("results"));
+  bindEvents();
+  appReady = true;
+
+  const requestedMode = new URLSearchParams(window.location.search).get("mode");
+  const savedMode = loadAppState().activeMode;
+  const initialMode = requestedMode === "results" || requestedMode === "rdc"
+    ? requestedMode
+    : (savedMode === "results" ? "results" : "rdc");
+  setMode(initialMode);
+}
+
+function bootstrap() {
+  bindAuthEvents();
+  loginUser.value = AUTH_ACCOUNT.username;
+
+  if (hasActiveSession()) {
+    migrateAccountDrafts();
+    showApp();
+    initializeApp();
+    return;
+  }
+
+  showLogin();
+}
+
+bootstrap();

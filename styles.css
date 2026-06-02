@@ -40,7 +40,64 @@ button {
 }
 
 .app-shell {
+  display: none;
   min-height: 100vh;
+}
+
+body.is-authenticated .app-shell {
+  display: block;
+}
+
+.login-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 22px;
+  background:
+    linear-gradient(130deg, rgba(23, 23, 23, 0.9), rgba(23, 23, 23, 0.74)),
+    radial-gradient(circle at 74% 18%, rgba(199, 154, 61, 0.72), transparent 28%),
+    linear-gradient(135deg, #123f4a, #171717 60%, #6d3128);
+}
+
+body.is-authenticated .login-shell {
+  display: none;
+}
+
+.login-card {
+  display: grid;
+  width: min(100%, 420px);
+  gap: 16px;
+  padding: 24px;
+  background: var(--paper);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 2px;
+}
+
+.login-brand h1 {
+  margin: 0;
+  font-size: 23px;
+  line-height: 1.1;
+}
+
+.login-card .primary-button {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.login-error {
+  min-height: 18px;
+  margin: 0;
+  color: var(--coral);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .topbar {
@@ -275,30 +332,26 @@ textarea:focus {
 }
 
 .results-input-table {
-  min-width: 1600px;
+  min-width: 1320px;
 }
 
 .results-input-table th:first-child,
 .results-input-table td:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  min-width: 320px;
+  min-width: 220px;
   background: var(--paper);
-  box-shadow: 1px 0 0 var(--line);
 }
 
 .results-input-table thead th:first-child {
-  z-index: 3;
+  z-index: 1;
 }
 
 .results-input-table th:not(:first-child),
 .results-input-table td:not(:first-child) {
-  min-width: 118px;
+  min-width: 105px;
 }
 
 .results-input-table input[data-field="name"] {
-  min-width: 292px;
+  min-width: 0;
 }
 
 .input-table.compact {
@@ -937,7 +990,7 @@ canvas {
 
   .results-input-table th:first-child,
   .results-input-table td:first-child {
-    min-width: 300px;
+    min-width: 220px;
   }
 
   .report-stage {

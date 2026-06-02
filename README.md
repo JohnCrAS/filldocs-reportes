@@ -35,7 +35,12 @@ https://TU_USUARIO.github.io/NOMBRE_DEL_REPO/
 
 Este repo debe contener solo la app estatica. No subas los PPTX, PDF ni XLSX originales.
 
-La app usa una sola cuenta local por navegador. Guarda borradores automaticamente con `localStorage`, recuerda el ultimo documento abierto y conserva la informacion despues de refrescar la pagina. No hay login ni base de datos todavia; para cuentas reales entre varios gerentes se necesitara agregar backend.
+La app tiene un login simple de un usuario:
+
+- Usuario: `Ritchie68`
+- Contraseña: `Sirenas2026!`
+
+La sesion queda guardada en el dispositivo y los borradores se guardan bajo esa cuenta usando `localStorage`. Este login es suficiente para el uso interno actual en GitHub Pages, pero no es seguridad real de produccion porque una app estatica expone su JavaScript. Para varios gerentes con cuentas reales se necesitara agregar backend/base de datos.
 
 ## Exportar en celular
 

@@ -7,6 +7,30 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <section class="login-shell" id="loginShell" aria-label="Inicio de sesión">
+      <form class="login-card" id="loginForm">
+        <div class="login-brand">
+          <div class="brand-mark" aria-hidden="true">LC</div>
+          <div>
+            <p class="eyebrow">La Calle de las Sirenas</p>
+            <h1>Generador de reportes</h1>
+          </div>
+        </div>
+        <label>
+          Usuario
+          <input id="loginUser" name="username" autocomplete="username" placeholder="Usuario" />
+        </label>
+        <label>
+          Contraseña
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Contraseña" />
+        </label>
+        <button class="primary-button" type="submit">
+          Entrar
+        </button>
+        <p class="login-error" id="loginError" role="alert"></p>
+      </form>
+    </section>
+
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-lockup">
@@ -37,6 +61,9 @@
           <button class="primary-button export-button" id="printButton" type="button" data-export-pdf>
             <span aria-hidden="true">⬇</span>
             Exportar PDF
+          </button>
+          <button class="ghost-button" id="logoutButton" type="button">
+            Salir
           </button>
         </div>
       </header>
