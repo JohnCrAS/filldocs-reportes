@@ -237,6 +237,50 @@ textarea:focus {
   border: 1px solid #cfc7ba;
 }
 
+.pdf-ready-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 80;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  width: min(620px, calc(100vw - 36px));
+  padding: 14px;
+  background: rgba(251, 250, 247, 0.98);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.pdf-ready-panel strong,
+.pdf-ready-panel span {
+  display: block;
+}
+
+.pdf-ready-panel strong {
+  font-size: 14px;
+}
+
+.pdf-ready-panel span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pdf-ready-panel .primary-button,
+.pdf-ready-panel .ghost-button {
+  height: 38px;
+}
+
+.pdf-ready-close {
+  width: 38px;
+  padding: 0;
+  font-size: 18px;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(410px, 0.76fr) minmax(560px, 1.24fr);
@@ -963,6 +1007,18 @@ canvas {
   .ghost-button {
     width: 100%;
     height: 42px;
+  }
+
+  .pdf-ready-panel {
+    right: 10px;
+    bottom: 10px;
+    grid-template-columns: 1fr;
+    width: calc(100vw - 20px);
+  }
+
+  .pdf-ready-panel .primary-button,
+  .pdf-ready-panel .ghost-button {
+    width: 100%;
   }
 
   .workspace {

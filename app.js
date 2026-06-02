@@ -100,6 +100,7 @@ const loginPassword = document.querySelector("#loginPassword");
 const loginError = document.querySelector("#loginError");
 const logoutButton = document.querySelector("#logoutButton");
 let appReady = false;
+let pendingPdfDelivery = null;
 
 function money(value) {
   const number = Number(value) || 0;
@@ -1338,38 +1339,6 @@ async function waitForReportAssets() {
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
 
-function writeSafariPdfWindow(pdfWindow, url, filename) {
-  if (!pdfWindow || pdfWindow.closed) return;
-  const safeUrl = escapeHtml(url);
-  const safeName = escapeHtml(filename);
-  pdfWindow.document.open();
-  pdfWindow.document.write(`
-    <!doctype html>
-    <html lang="es-MX">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${safeName}</title>
-        <style>
-          body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #fbfaf7; color: #171717; }
-          main { display: grid; min-height: 100vh; place-items: center; padding: 24px; text-align: center; }
-          a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; color: #fff; background: #171717; border-radius: 7px; font-weight: 800; text-decoration: none; }
-          p { max-width: 360px; color: #66615c; line-height: 1.45; }
-          iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
-          .fallback { position: fixed; left: 0; right: 0; bottom: 0; padding: 14px; background: rgba(251, 250, 247, 0.94); border-top: 1px solid #ded8cd; }
-        </style>
-      </head>
-      <body>
-        <iframe src="${safeUrl}" title="${safeName}"></iframe>
-        <div class="fallback">
-          <a href="${safeUrl}" download="${safeName}">Abrir / compartir PDF</a>
-        </div>
-      </body>
-    </html>
-  `);
-  pdfWindow.document.close();
-}
-
 async function sharePdfFile(blob, filename) {
   if (!navigator.share || !navigator.canShare || typeof File === "undefined") return false;
   const file = new File([blob], filename, { type: "application/pdf" });
@@ -1386,21 +1355,56 @@ async function sharePdfFile(blob, filename) {
   }
 }
 
-async function deliverPdfBlob(blob, filename, helperWindow) {
-  if (helperWindow) {
-    const shared = await sharePdfFile(blob, filename);
-    if (shared) {
-      helperWindow.close();
-      return;
+function closeSafariPdfPanel() {
+  document.querySelector("#safariPdfPanel")?.remove();
+}
+
+function showSafariPdfReady(blob, filename) {
+  closeSafariPdfPanel();
+  if (pendingPdfDelivery?.url) URL.revokeObjectURL(pendingPdfDelivery.url);
+  const url = URL.createObjectURL(blob);
+  pendingPdfDelivery = { blob, filename, url };
+
+  const panel = document.createElement("div");
+  panel.className = "pdf-ready-panel";
+  panel.id = "safariPdfPanel";
+  panel.innerHTML = `
+    <div>
+      <strong>PDF listo</strong>
+      <span>En Safari toca el botón para abrirlo o compartirlo.</span>
+    </div>
+    <button class="primary-button" type="button" data-open-pdf>Abrir / compartir PDF</button>
+    <button class="ghost-button pdf-ready-close" type="button" aria-label="Cerrar">×</button>
+  `;
+
+  panel.querySelector("[data-open-pdf]").addEventListener("click", async () => {
+    const delivered = await sharePdfFile(blob, filename);
+    if (!delivered) {
+      const opened = window.open(url, "_blank", "noopener");
+      if (!opened) window.location.href = url;
+    } else {
+      closeSafariPdfPanel();
     }
+  });
+  panel.querySelector(".pdf-ready-close").addEventListener("click", closeSafariPdfPanel);
+  document.body.appendChild(panel);
+
+  window.setTimeout(() => {
+    if (pendingPdfDelivery?.url === url) {
+      URL.revokeObjectURL(url);
+      pendingPdfDelivery = null;
+      closeSafariPdfPanel();
+    }
+  }, 300000);
+}
+
+async function deliverPdfBlob(blob, filename) {
+  if (shouldUseSafariPdfFlow()) {
+    showSafariPdfReady(blob, filename);
+    return;
   }
 
   const url = URL.createObjectURL(blob);
-  if (helperWindow && !helperWindow.closed) {
-    writeSafariPdfWindow(helperWindow, url, filename);
-    window.setTimeout(() => URL.revokeObjectURL(url), 300000);
-    return;
-  }
 
   const link = document.createElement("a");
   link.href = url;
@@ -1414,11 +1418,7 @@ async function deliverPdfBlob(blob, filename, helperWindow) {
 }
 
 async function exportPdfDownload() {
-  const helperWindow = shouldUseSafariPdfFlow() ? window.open("", "_blank") : null;
-  if (helperWindow) {
-    helperWindow.document.write("<!doctype html><title>Generando PDF</title><p style=\"font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:24px;\">Generando PDF...</p>");
-  }
-
+  closeSafariPdfPanel();
   setExportBusy(true);
   try {
     if (!window.html2canvas || !window.jspdf?.jsPDF) {
@@ -1443,7 +1443,10 @@ async function exportPdfDownload() {
     });
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
-    const captureScale = Math.min(1.6, Math.max(1.25, window.devicePixelRatio || 1.4));
+    const captureScale = shouldUseSafariPdfFlow()
+      ? 1
+      : Math.min(1.6, Math.max(1.25, window.devicePixelRatio || 1.4));
+    const imageQuality = shouldUseSafariPdfFlow() ? 0.86 : 0.92;
 
     for (const [index, page] of pages.entries()) {
       const canvas = await window.html2canvas(page, {
@@ -1457,7 +1460,7 @@ async function exportPdfDownload() {
         windowWidth: Math.max(document.documentElement.scrollWidth, page.offsetWidth),
         windowHeight: Math.max(document.documentElement.scrollHeight, page.offsetHeight),
       });
-      const image = canvas.toDataURL("image/jpeg", 0.92);
+      const image = canvas.toDataURL("image/jpeg", imageQuality);
       if (index > 0) pdf.addPage("letter", "landscape");
       pdf.addImage(image, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
     }
@@ -1466,10 +1469,9 @@ async function exportPdfDownload() {
     else setPreviewScale();
 
     const blob = pdf.output("blob");
-    await deliverPdfBlob(blob, pdfFileName(), helperWindow);
-    draftStatus.textContent = "PDF generado";
+    await deliverPdfBlob(blob, pdfFileName());
+    draftStatus.textContent = shouldUseSafariPdfFlow() ? "PDF listo para abrir" : "PDF generado";
   } catch {
-    if (helperWindow && !helperWindow.closed) helperWindow.close();
     window.alert("No se pudo descargar el PDF automáticamente. Se abrirá el diálogo de impresión para guardar como PDF.");
     renderActive();
     window.setTimeout(() => window.print(), 80);
