@@ -559,9 +559,9 @@ input[type="range"] {
 .cover-page {
   color: #fff;
   background:
-    linear-gradient(130deg, rgba(23, 23, 23, 0.94), rgba(23, 23, 23, 0.76)),
-    radial-gradient(circle at 78% 18%, rgba(199, 154, 61, 0.75), transparent 33%),
-    linear-gradient(135deg, #123f4a, #171717 58%, #6d3128);
+    radial-gradient(circle at 80% 16%, rgba(255, 45, 149, 0.5), transparent 40%),
+    radial-gradient(circle at 14% 86%, rgba(34, 211, 238, 0.38), transparent 42%),
+    linear-gradient(140deg, #0e0a1e, #07070f 55%, #10183a);
 }
 
 .cover-page::after,
@@ -619,6 +619,7 @@ input[type="range"] {
 }
 
 .logo-placeholder {
+  display: none;
   color: rgba(255, 255, 255, 0.82);
   font-family: var(--serif);
   font-size: 34px;

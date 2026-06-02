@@ -5,7 +5,7 @@ App estatica para capturar y exportar reportes de La Calle de las Sirenas.
 ## Documentos incluidos
 
 - Rendicion de Cuentas
-- RESULTADOS DE ENERO 2026
+- Resultados 2026
 
 ## Ejecutar local
 

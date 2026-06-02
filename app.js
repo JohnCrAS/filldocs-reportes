@@ -186,7 +186,7 @@ function makeDefaultResults() {
   return {
     brand: "la-calle",
     resultsManager: "",
-    resultsTitle: "RESULTADOS DE ENERO 2026",
+    resultsTitle: "Resultados 2026",
     resultsWeek: "Semana 4",
     resultsPeriod: "Del 19 al 25 de enero de 2026",
     resultsSalesGoal: 250000,
@@ -842,7 +842,7 @@ function renderResultsReport() {
   const data = collectResults();
   const brand = BRAND_CONFIG["la-calle"];
   const metrics = calculateResults(data);
-  const title = data.resultsTitle || "RESULTADOS DE ENERO 2026";
+  const title = data.resultsTitle || "Resultados 2026";
   const period = data.resultsPeriod || data.resultsWeek || "Periodo sin capturar";
   const manager = data.resultsManager || "Gerente sin capturar";
 
@@ -1342,7 +1342,7 @@ function pdfFileName() {
   const mode = documentTypeSelect.value;
   const source = mode === "results" ? collectResults() : collectRdc();
   const rawName = mode === "results"
-    ? source.resultsTitle || "resultados-enero-2026"
+    ? source.resultsTitle || "resultados-2026"
     : `rendicion-cuentas-${source.weekLabel || source.periodLabel || "reporte"}`;
   const slug = rawName
     .normalize("NFD")
@@ -1534,7 +1534,7 @@ function setMode(mode) {
   documentTypeSelect.value = mode;
   reportForm.classList.toggle("is-hidden", mode !== "rdc");
   resultsForm.classList.toggle("is-hidden", mode !== "results");
-  topbarTitle.textContent = mode === "results" ? "Resultados de Enero 2026" : "Rendición de cuentas";
+  topbarTitle.textContent = mode === "results" ? "Resultados 2026" : "Rendición de cuentas";
   saveAppState({ activeMode: mode });
   draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username}`;
   renderActive();
@@ -1548,26 +1548,51 @@ function resetActiveDraft() {
   renderActive();
 }
 
+function debounce(fn, delay = 180) {
+  let timer = null;
+  function debounced() {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn();
+    }, delay);
+  }
+  debounced.cancel = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  return debounced;
+}
+
+const renderRdcDebounced = debounce(renderRdcReport);
+const renderResultsDebounced = debounce(renderResultsReport);
+
 function bindEvents() {
   reportForm.addEventListener("input", (event) => {
     if (event.target.matches("[data-score]")) {
       document.querySelector(`#score-${event.target.dataset.score}`).textContent = `${event.target.value}%`;
     }
-    if (documentTypeSelect.value === "rdc") renderRdcReport();
+    if (documentTypeSelect.value === "rdc") renderRdcDebounced();
   });
 
   reportForm.addEventListener("change", () => {
-    if (documentTypeSelect.value === "rdc") renderRdcReport();
+    if (documentTypeSelect.value === "rdc") {
+      renderRdcDebounced.cancel();
+      renderRdcReport();
+    }
   });
 
   resultsForm.addEventListener("input", () => {
     updateSellerCheckOutputs();
-    if (documentTypeSelect.value === "results") renderResultsReport();
+    if (documentTypeSelect.value === "results") renderResultsDebounced();
   });
 
   resultsForm.addEventListener("change", () => {
     updateSellerCheckOutputs();
-    if (documentTypeSelect.value === "results") renderResultsReport();
+    if (documentTypeSelect.value === "results") {
+      renderResultsDebounced.cancel();
+      renderResultsReport();
+    }
   });
 
   documentTypeSelect.addEventListener("change", () => setMode(documentTypeSelect.value));

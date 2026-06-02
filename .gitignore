@@ -9,3 +9,4 @@ qa-*.pdf
 qa-*.png
 extracted-*
 assets/*-source.jpg
+.claude/
