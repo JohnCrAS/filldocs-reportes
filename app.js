@@ -5,7 +5,7 @@ const BRAND_CONFIG = {
     mark: "LC",
     monthlyGoal: 1000000,
     weeklyGoal: 250000,
-    logoPath: "assets/logo-la-calle.webp?v=pptx-logo-2",
+    logoPath: "assets/logo-la-calle-mark.webp?v=mark-1",
   },
 };
 
@@ -46,16 +46,6 @@ const NARRATIVE_TABS = [
   { key: "worked", shortLabel: "Funcionó", label: "Qué funcionó y sirvió" },
   { key: "blocked", shortLabel: "Faltó", label: "Qué faltó o estorbó" },
   { key: "commitments", shortLabel: "Compromisos", label: "Nuevas posibilidades y compromisos" },
-];
-
-const RESULT_PRODUCTS = [
-  { key: "missileMoet", label: "Misil / Moet", defaultGoal: 1 },
-  { key: "premiumBottle", label: "Botella premium", defaultGoal: 5 },
-  { key: "blackPearls", label: "Perlas negras", defaultGoal: 10 },
-  { key: "specialSnack", label: "Botana especial", defaultGoal: 5 },
-  { key: "molcajete", label: "Molcajete sonorense", defaultGoal: 5 },
-  { key: "souvenir", label: "Souvenir", defaultGoal: 2 },
-  { key: "reviews", label: "Reseñas", defaultGoal: 5 },
 ];
 
 const RESULT_SELLERS = [
@@ -99,7 +89,6 @@ const weeksBody = document.querySelector("#weeksBody");
 const scoreInputs = document.querySelector("#scoreInputs");
 const narrativeFields = document.querySelector("#narrativeFields");
 const staffBody = document.querySelector("#staffBody");
-const productGoalInputs = document.querySelector("#productGoalInputs");
 const sellerBody = document.querySelector("#sellerBody");
 const draftStatus = document.querySelector("#draftStatus");
 const topbarTitle = document.querySelector(".topbar h1");
@@ -174,7 +163,6 @@ function makeDefaultRdc() {
       goal: brand.weeklyGoal,
       guests: "",
       repurchase: "",
-      foodSales: "",
     })),
     scores: Object.fromEntries(SCORES.map((score) => [score.key, score.defaultValue])),
     notes: Object.fromEntries(
@@ -198,21 +186,11 @@ function makeDefaultResults() {
     resultsTitle: "RESULTADOS DE ENERO 2026",
     resultsWeek: "Semana 4",
     resultsPeriod: "Del 19 al 25 de enero de 2026",
-    tipRate: 12,
     resultsSalesGoal: 250000,
-    goals: Object.fromEntries(RESULT_PRODUCTS.map((product) => [product.key, product.defaultGoal])),
     sellers: RESULT_SELLERS.map((name) => ({
       name,
       sales: "",
       guests: "",
-      foodSales: "",
-      missileMoet: "",
-      premiumBottle: "",
-      blackPearls: "",
-      specialSnack: "",
-      molcajete: "",
-      souvenir: "",
-      reviews: "",
     })),
   };
 }
@@ -225,7 +203,6 @@ function buildRdcForm() {
       <td><input data-week="${index}" data-field="goal" type="number" min="0" step="100" aria-label="Meta semana ${index + 1}" /></td>
       <td><input data-week="${index}" data-field="guests" type="number" min="0" step="1" aria-label="PX semana ${index + 1}" /></td>
       <td><input data-week="${index}" data-field="repurchase" type="number" min="0" step="100" aria-label="Recompra semana ${index + 1}" /></td>
-      <td><input data-week="${index}" data-field="foodSales" type="number" min="0" step="100" aria-label="Venta alimentos semana ${index + 1}" /></td>
     </tr>
   `).join("");
 
@@ -265,21 +242,12 @@ function renderSellerRows(count) {
       <td><input data-seller="${index}" data-field="name" aria-label="Vendedor ${index + 1}" /></td>
       <td><input data-seller="${index}" data-field="sales" type="number" min="0" step="100" aria-label="Venta vendedor ${index + 1}" /></td>
       <td><input data-seller="${index}" data-field="guests" type="number" min="0" step="1" aria-label="PX vendedor ${index + 1}" /></td>
-      <td><input data-seller="${index}" data-field="foodSales" type="number" min="0" step="100" aria-label="Venta alimentos vendedor ${index + 1}" /></td>
-      ${RESULT_PRODUCTS.map((product) => `
-        <td><input data-seller="${index}" data-field="${product.key}" type="number" min="0" step="1" aria-label="${product.label} vendedor ${index + 1}" /></td>
-      `).join("")}
+      <td><output data-seller-check="${index}" aria-label="Cheque promedio vendedor ${index + 1}">$0</output></td>
     </tr>
   `).join("");
 }
 
 function buildResultsForm() {
-  productGoalInputs.innerHTML = RESULT_PRODUCTS.map((product) => `
-    <label>
-      ${product.label}
-      <input data-product-goal="${product.key}" type="number" min="0" step="1" />
-    </label>
-  `).join("");
   renderSellerRows(RESULT_SELLERS.length);
 }
 
@@ -331,7 +299,6 @@ function setResultsFormData(data) {
     "resultsTitle",
     "resultsWeek",
     "resultsPeriod",
-    "tipRate",
     "resultsSalesGoal",
   ];
 
@@ -340,15 +307,12 @@ function setResultsFormData(data) {
     if (input) input.value = data[name] ?? "";
   });
 
-  resultsForm.querySelectorAll("[data-product-goal]").forEach((input) => {
-    input.value = data.goals?.[input.dataset.productGoal] ?? "";
-  });
-
   renderSellerRows(Math.max(data.sellers?.length || 0, RESULT_SELLERS.length));
   resultsForm.querySelectorAll("[data-seller]").forEach((input) => {
     const seller = data.sellers?.[Number(input.dataset.seller)] || {};
     input.value = seller[input.dataset.field] ?? "";
   });
+  updateSellerCheckOutputs();
 }
 
 function collectRdc() {
@@ -412,17 +376,11 @@ function collectResults() {
     "resultsTitle",
     "resultsWeek",
     "resultsPeriod",
-    "tipRate",
     "resultsSalesGoal",
   ];
 
   simpleFields.forEach((name) => {
     data[name] = resultsForm.elements[name]?.value ?? "";
-  });
-
-  data.goals = {};
-  resultsForm.querySelectorAll("[data-product-goal]").forEach((input) => {
-    data.goals[input.dataset.productGoal] = input.value;
   });
 
   const indexes = [
@@ -439,24 +397,30 @@ function collectResults() {
   return data;
 }
 
+function updateSellerCheckOutputs() {
+  resultsForm.querySelectorAll("[data-seller-check]").forEach((output) => {
+    const index = output.dataset.sellerCheck;
+    const sales = toNumber(resultsForm.querySelector(`[data-seller="${index}"][data-field="sales"]`)?.value);
+    const guests = toNumber(resultsForm.querySelector(`[data-seller="${index}"][data-field="guests"]`)?.value);
+    output.textContent = money(safeRatio(sales, guests));
+  });
+}
+
 function calculateRdc(data) {
   const weeks = data.weeks.map((week) => {
     const sales = toNumber(week.sales);
     const goal = toNumber(week.goal);
     const guests = toNumber(week.guests);
     const repurchase = toNumber(week.repurchase);
-    const foodSales = toNumber(week.foodSales);
     return {
       ...week,
       sales,
       goal,
       guests,
       repurchase,
-      foodSales,
       difference: goal - sales,
       completion: safeRatio(sales, goal),
       checkAverage: safeRatio(sales, guests),
-      foodShare: safeRatio(foodSales, sales),
     };
   });
 
@@ -466,16 +430,14 @@ function calculateRdc(data) {
       acc.goal += week.goal;
       acc.guests += week.guests;
       acc.repurchase += week.repurchase;
-      acc.foodSales += week.foodSales;
       return acc;
     },
-    { sales: 0, goal: 0, guests: 0, repurchase: 0, foodSales: 0 },
+    { sales: 0, goal: 0, guests: 0, repurchase: 0 },
   );
 
   totals.difference = totals.goal - totals.sales;
   totals.completion = safeRatio(totals.sales, totals.goal);
   totals.checkAverage = safeRatio(totals.sales, totals.guests);
-  totals.foodShare = safeRatio(totals.foodSales, totals.sales);
 
   const previous = {
     repurchase: toNumber(data.previousRepurchase),
@@ -519,87 +481,50 @@ function calculateRdc(data) {
 }
 
 function calculateResults(data) {
-  const tipRate = toNumber(data.tipRate) / 100;
   const sellers = data.sellers
     .map((seller) => {
       const sales = toNumber(seller.sales);
       const guests = toNumber(seller.guests);
-      const foodSales = toNumber(seller.foodSales);
-      const productValues = Object.fromEntries(
-        RESULT_PRODUCTS.map((product) => [product.key, toNumber(seller[product.key])]),
-      );
       return {
         ...seller,
         name: seller.name || "Vendedor",
         sales,
-        tip: sales * tipRate,
-        netSales: sales - sales * tipRate,
         guests,
-        foodSales,
-        foodShare: safeRatio(foodSales, sales),
         checkAverage: safeRatio(sales, guests),
-        ...productValues,
       };
     })
-    .filter((seller) => seller.name.trim() || seller.sales || seller.guests || seller.foodSales);
+    .filter((seller) => seller.name.trim() || seller.sales || seller.guests);
 
   const totals = sellers.reduce(
     (acc, seller) => {
       acc.sales += seller.sales;
-      acc.tip += seller.tip;
-      acc.netSales += seller.netSales;
       acc.guests += seller.guests;
-      acc.foodSales += seller.foodSales;
-      RESULT_PRODUCTS.forEach((product) => {
-        acc.products[product.key] += seller[product.key];
-      });
       return acc;
     },
     {
       sales: 0,
-      tip: 0,
-      netSales: 0,
       guests: 0,
-      foodSales: 0,
-      products: Object.fromEntries(RESULT_PRODUCTS.map((product) => [product.key, 0])),
     },
   );
 
-  totals.foodShare = safeRatio(totals.foodSales, totals.sales);
   totals.checkAverage = safeRatio(totals.sales, totals.guests);
   totals.salesCompletion = safeRatio(totals.sales, data.resultsSalesGoal);
-
-  const productMetrics = RESULT_PRODUCTS.map((product) => {
-    const goal = toNumber(data.goals?.[product.key]);
-    const actual = totals.products[product.key] || 0;
-    return {
-      ...product,
-      goal,
-      actual,
-      difference: actual - goal,
-      completion: safeRatio(actual, goal),
-    };
-  });
 
   const topSeller = sellers
     .filter((seller) => seller.sales > 0)
     .sort((a, b) => b.sales - a.sales)[0] || null;
 
-  return { sellers, totals, productMetrics, topSeller, tipRate };
+  const topCheck = sellers
+    .filter((seller) => seller.checkAverage > 0)
+    .sort((a, b) => b.checkAverage - a.checkAverage)[0] || null;
+
+  return { sellers, totals, topSeller, topCheck };
 }
 
 function deltaClass(value) {
   if (value > 0) return "delta-positive";
   if (value < 0) return "delta-negative";
   return "";
-}
-
-function foodStatus(share) {
-  if (!share) return "Sin datos";
-  if (share < 0.05) return "No cumple";
-  if (share <= 0.1) return "Media";
-  if (share <= 0.2) return "Cumple";
-  return "Excelente";
 }
 
 function checkStatus(value) {
@@ -692,7 +617,7 @@ function renderRdcReport() {
         <div>
           <div class="logo-box">
             <img src="${brand.logoPath}" alt="${brand.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-            <div class="logo-placeholder">La Calle<br />de las Sirenas</div>
+            <div class="logo-placeholder">LC</div>
           </div>
           <div class="cover-meta">
             <span><strong>Gerente:</strong> ${escapeHtml(manager)}</span>
@@ -725,7 +650,7 @@ function renderRdcReport() {
           <div class="kpi accent-coral">
             <small>Recompra</small>
             <strong>${money(metrics.totals.repurchase)}</strong>
-            <span>Alimentos ${percent(metrics.totals.foodShare)}</span>
+            <span>Acumulado semanal</span>
           </div>
         </div>
         <div class="report-grid">
@@ -897,28 +822,13 @@ function renderRdcReport() {
   saveDraft("rdc", data);
 }
 
-function productRows(productMetrics) {
-  return productMetrics.map((product) => `
-    <tr>
-      <td>${product.label}</td>
-      <td>${numberFormat(product.actual)}</td>
-      <td>${numberFormat(product.goal)}</td>
-      <td class="${deltaClass(product.difference)}">${numberFormat(product.difference)}</td>
-      <td>${percent(product.completion)}</td>
-    </tr>
-  `).join("");
-}
-
 function sellerRows(sellers) {
   return sellers.map((seller) => `
     <tr>
       <td>${escapeHtml(seller.name)}</td>
       <td>${money(seller.sales)}</td>
-      <td>${money(seller.netSales)}</td>
       <td>${numberFormat(seller.guests)}</td>
       <td>${money(seller.checkAverage)}</td>
-      <td>${money(seller.foodSales)}</td>
-      <td>${percent(seller.foodShare)}</td>
     </tr>
   `).join("");
 }
@@ -942,12 +852,12 @@ function renderResultsReport() {
         <div>
           <div class="logo-box">
             <img src="${brand.logoPath}" alt="${brand.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-            <div class="logo-placeholder">La Calle<br />de las Sirenas</div>
+            <div class="logo-placeholder">LC</div>
           </div>
           <div class="cover-meta">
             <span><strong>Responsable:</strong> ${escapeHtml(manager)}</span>
             <span><strong>${escapeHtml(data.resultsWeek || "Semana")}</strong></span>
-            <span><strong>Propina:</strong> ${numberFormat(toNumber(data.tipRate))}%</span>
+            <span><strong>Px:</strong> Personas capturadas por vendedor</span>
           </div>
         </div>
       </div>
@@ -963,19 +873,19 @@ function renderResultsReport() {
             <span>Meta ${money(toNumber(data.resultsSalesGoal))} · ${percent(metrics.totals.salesCompletion)}</span>
           </div>
           <div class="kpi accent-gold">
-            <small>VTA sin propina</small>
-            <strong>${money(metrics.totals.netSales)}</strong>
-            <span>Propina ${money(metrics.totals.tip)}</span>
+            <small>Cheque promedio</small>
+            <strong>${money(metrics.totals.checkAverage)}</strong>
+            <span>${checkStatus(metrics.totals.checkAverage)} · venta / px</span>
           </div>
           <div class="kpi accent-blue">
-            <small>PX / Cheque</small>
+            <small>Px total</small>
             <strong>${numberFormat(metrics.totals.guests)}</strong>
-            <span>Cheque ${money(metrics.totals.checkAverage)} · ${checkStatus(metrics.totals.checkAverage)}</span>
+            <span>Pax / personas capturadas</span>
           </div>
           <div class="kpi accent-coral">
-            <small>Venta alimentos</small>
-            <strong>${money(metrics.totals.foodSales)}</strong>
-            <span>${percent(metrics.totals.foodShare)} · ${foodStatus(metrics.totals.foodShare)}</span>
+            <small>Mejor vendedor</small>
+            <strong>${escapeHtml(metrics.topSeller?.name || "Sin datos")}</strong>
+            <span>${money(metrics.topSeller?.sales || 0)}</span>
           </div>
         </div>
         <div class="report-grid">
@@ -984,15 +894,15 @@ function renderResultsReport() {
             <div class="canvas-shell"><canvas id="resultsSalesChart"></canvas></div>
           </div>
           <div class="chart-card">
-            <h3>Cumplimiento de productos</h3>
-            <div class="canvas-shell"><canvas id="resultsProductChart"></canvas></div>
+            <h3>Cheque promedio por vendedor</h3>
+            <div class="canvas-shell"><canvas id="resultsCheckChart"></canvas></div>
           </div>
         </div>
         <div class="kpi-grid" style="margin-top:0.26in">
           <div class="kpi">
-            <small>Mejor vendedor</small>
-            <strong>${escapeHtml(metrics.topSeller?.name || "Sin datos")}</strong>
-            <span>${money(metrics.topSeller?.sales || 0)}</span>
+            <small>Mayor cheque</small>
+            <strong>${escapeHtml(metrics.topCheck?.name || "Sin datos")}</strong>
+            <span>${money(metrics.topCheck?.checkAverage || 0)}</span>
           </div>
           <div class="kpi accent-blue">
             <small>Vendedores</small>
@@ -1000,14 +910,14 @@ function renderResultsReport() {
             <span>Filas capturadas</span>
           </div>
           <div class="kpi accent-gold">
-            <small>Productos meta</small>
-            <strong>${RESULT_PRODUCTS.length}</strong>
-            <span>Indicadores de venta</span>
+            <small>Venta por px</small>
+            <strong>${money(metrics.totals.checkAverage)}</strong>
+            <span>Promedio ponderado</span>
           </div>
           <div class="kpi accent-coral">
             <small>Errores de fórmula</small>
             <strong>0</strong>
-            <span>Divisiones protegidas</span>
+            <span>Venta / px protegido</span>
           </div>
         </div>
         ${pageFooter(brand.name, period, 2)}
@@ -1022,11 +932,8 @@ function renderResultsReport() {
             <tr>
               <th>Vendedor</th>
               <th>Venta</th>
-              <th>Sin propina</th>
-              <th>PX</th>
-              <th>Cheque</th>
-              <th>Venta alim.</th>
-              <th>% alim.</th>
+              <th>Px</th>
+              <th>Cheque promedio</th>
             </tr>
           </thead>
           <tbody>${sellerRows(metrics.sellers)}</tbody>
@@ -1035,38 +942,6 @@ function renderResultsReport() {
       </div>
     </section>
 
-    <section class="report-page">
-      <div class="page-inner">
-        ${pageHeader("Metas y semáforos", "Resultados")}
-        <div class="report-grid">
-          <div class="table-card">
-            <h3>Producto contra meta</h3>
-            <table class="report-table">
-              <thead>
-                <tr>
-                  <th>Indicador</th>
-                  <th>Real</th>
-                  <th>Meta</th>
-                  <th>Dif.</th>
-                  <th>%</th>
-                </tr>
-              </thead>
-              <tbody>${productRows(metrics.productMetrics)}</tbody>
-            </table>
-          </div>
-          <div class="notes-card semaforo-card">
-            <h3>Lectura automática</h3>
-            <ul class="notes-list">
-              <li><strong>Alimentos</strong>${foodStatus(metrics.totals.foodShare)} con ${percent(metrics.totals.foodShare)} de la venta total.</li>
-              <li><strong>Cheque promedio</strong>${checkStatus(metrics.totals.checkAverage)} con ${money(metrics.totals.checkAverage)} por PX.</li>
-              <li><strong>Venta sin propina</strong>${money(metrics.totals.netSales)} después de descontar ${numberFormat(toNumber(data.tipRate))}%.</li>
-              <li><strong>Fórmulas corregidas</strong>Cuando venta o PX están en cero, el reporte muestra 0 o Sin datos en lugar de errores de hoja de cálculo.</li>
-            </ul>
-          </div>
-        </div>
-        ${pageFooter(brand.name, period, 4)}
-      </div>
-    </section>
   `;
 
   drawResultsCharts(metrics);
@@ -1092,7 +967,7 @@ function drawRdcCharts(metrics) {
 
 function drawResultsCharts(metrics) {
   drawResultsSalesChart(document.querySelector("#resultsSalesChart"), metrics.sellers);
-  drawProductChart(document.querySelector("#resultsProductChart"), metrics.productMetrics);
+  drawResultsCheckChart(document.querySelector("#resultsCheckChart"), metrics.sellers);
 }
 
 function drawWeeklyChart(canvas, weeks) {
@@ -1232,31 +1107,34 @@ function drawResultsSalesChart(canvas, sellers) {
   });
 }
 
-function drawProductChart(canvas, products) {
+function drawResultsCheckChart(canvas, sellers) {
   const setup = setupCanvas(canvas);
   if (!setup) return;
   const { ctx, width, height } = setup;
-  const pad = { top: 18, right: 26, bottom: 24, left: 108 };
-  const rowH = (height - pad.top - pad.bottom) / products.length;
+  const rows = sellers.filter((seller) => seller.checkAverage > 0).slice(0, 8);
+  const chartRows = rows.length ? rows : sellers.slice(0, 6);
+  const pad = { top: 18, right: 26, bottom: 24, left: 100 };
+  const rowH = (height - pad.top - pad.bottom) / Math.max(chartRows.length, 1);
+  const maxCheck = Math.max(1, ...chartRows.map((seller) => seller.checkAverage));
 
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, width, height);
   ctx.font = "700 10px Segoe UI, Arial";
-  products.forEach((product, index) => {
+  chartRows.forEach((seller, index) => {
     const y = pad.top + rowH * index + rowH * 0.22;
-    const completion = Math.min(1.25, product.completion || 0);
     const trackW = width - pad.left - pad.right;
+    const barW = (trackW * seller.checkAverage) / maxCheck;
     ctx.fillStyle = "#171717";
     ctx.textAlign = "right";
-    ctx.fillText(product.label.split(" ").slice(0, 2).join(" "), pad.left - 8, y + rowH * 0.32);
+    ctx.fillText(seller.name.split(" ").slice(0, 2).join(" "), pad.left - 8, y + rowH * 0.32);
     ctx.fillStyle = "#e6ded0";
     ctx.fillRect(pad.left, y, trackW, Math.max(8, rowH * 0.44));
-    ctx.fillStyle = completion >= 1 ? "#27845a" : "#c79a3d";
-    ctx.fillRect(pad.left, y, trackW * Math.min(1, completion), Math.max(8, rowH * 0.44));
+    ctx.fillStyle = "#315f8a";
+    ctx.fillRect(pad.left, y, barW, Math.max(8, rowH * 0.44));
     ctx.fillStyle = "#66615c";
     ctx.textAlign = "left";
-    ctx.fillText(`${numberFormat(product.actual)} / ${numberFormat(product.goal)}`, pad.left + trackW + 6, y + rowH * 0.32);
+    ctx.fillText(money(seller.checkAverage), pad.left + barW + 6, y + rowH * 0.32);
   });
 }
 
@@ -1399,6 +1277,14 @@ function isIOSDevice() {
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
+function isSafariBrowser() {
+  return /^((?!chrome|android|crios|fxios|edgios|opr|opera).)*safari/i.test(navigator.userAgent);
+}
+
+function shouldUseSafariPdfFlow() {
+  return isIOSDevice() || isSafariBrowser();
+}
+
 function pdfFileName() {
   const mode = documentTypeSelect.value;
   const source = mode === "results" ? collectResults() : collectRdc();
@@ -1448,8 +1334,70 @@ async function waitForReportAssets() {
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
 
-function downloadBlob(blob, filename, iosWindow) {
+function writeSafariPdfWindow(pdfWindow, url, filename) {
+  if (!pdfWindow || pdfWindow.closed) return;
+  const safeUrl = escapeHtml(url);
+  const safeName = escapeHtml(filename);
+  pdfWindow.document.open();
+  pdfWindow.document.write(`
+    <!doctype html>
+    <html lang="es-MX">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>${safeName}</title>
+        <style>
+          body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #fbfaf7; color: #171717; }
+          main { display: grid; min-height: 100vh; place-items: center; padding: 24px; text-align: center; }
+          a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; color: #fff; background: #171717; border-radius: 7px; font-weight: 800; text-decoration: none; }
+          p { max-width: 360px; color: #66615c; line-height: 1.45; }
+          iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+          .fallback { position: fixed; left: 0; right: 0; bottom: 0; padding: 14px; background: rgba(251, 250, 247, 0.94); border-top: 1px solid #ded8cd; }
+        </style>
+      </head>
+      <body>
+        <iframe src="${safeUrl}" title="${safeName}"></iframe>
+        <div class="fallback">
+          <a href="${safeUrl}" download="${safeName}">Abrir / compartir PDF</a>
+        </div>
+      </body>
+    </html>
+  `);
+  pdfWindow.document.close();
+}
+
+async function sharePdfFile(blob, filename) {
+  if (!navigator.share || !navigator.canShare || typeof File === "undefined") return false;
+  const file = new File([blob], filename, { type: "application/pdf" });
+  if (!navigator.canShare({ files: [file] })) return false;
+  try {
+    await navigator.share({
+      files: [file],
+      title: filename,
+      text: "Reporte PDF",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function deliverPdfBlob(blob, filename, helperWindow) {
+  if (helperWindow) {
+    const shared = await sharePdfFile(blob, filename);
+    if (shared) {
+      helperWindow.close();
+      return;
+    }
+  }
+
   const url = URL.createObjectURL(blob);
+  if (helperWindow && !helperWindow.closed) {
+    writeSafariPdfWindow(helperWindow, url, filename);
+    window.setTimeout(() => URL.revokeObjectURL(url), 300000);
+    return;
+  }
+
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
@@ -1458,17 +1406,13 @@ function downloadBlob(blob, filename, iosWindow) {
   link.click();
   link.remove();
 
-  if (iosWindow && !iosWindow.closed) {
-    iosWindow.location.href = url;
-  }
-
   window.setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 async function exportPdfDownload() {
-  const iosWindow = isIOSDevice() ? window.open("", "_blank") : null;
-  if (iosWindow) {
-    iosWindow.document.write("<!doctype html><title>Generando PDF</title><p style=\"font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:24px;\">Generando PDF...</p>");
+  const helperWindow = shouldUseSafariPdfFlow() ? window.open("", "_blank") : null;
+  if (helperWindow) {
+    helperWindow.document.write("<!doctype html><title>Generando PDF</title><p style=\"font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:24px;\">Generando PDF...</p>");
   }
 
   setExportBusy(true);
@@ -1518,10 +1462,10 @@ async function exportPdfDownload() {
     else setPreviewScale();
 
     const blob = pdf.output("blob");
-    downloadBlob(blob, pdfFileName(), iosWindow);
+    await deliverPdfBlob(blob, pdfFileName(), helperWindow);
     draftStatus.textContent = "PDF generado";
   } catch {
-    if (iosWindow && !iosWindow.closed) iosWindow.close();
+    if (helperWindow && !helperWindow.closed) helperWindow.close();
     window.alert("No se pudo descargar el PDF automáticamente. Se abrirá el diálogo de impresión para guardar como PDF.");
     renderActive();
     window.setTimeout(() => window.print(), 80);
@@ -1561,10 +1505,12 @@ function bindEvents() {
   });
 
   resultsForm.addEventListener("input", () => {
+    updateSellerCheckOutputs();
     if (documentTypeSelect.value === "results") renderResultsReport();
   });
 
   resultsForm.addEventListener("change", () => {
+    updateSellerCheckOutputs();
     if (documentTypeSelect.value === "results") renderResultsReport();
   });
 
@@ -1586,14 +1532,6 @@ function bindEvents() {
       name: "",
       sales: "",
       guests: "",
-      foodSales: "",
-      missileMoet: "",
-      premiumBottle: "",
-      blackPearls: "",
-      specialSnack: "",
-      molcajete: "",
-      souvenir: "",
-      reviews: "",
     });
     setResultsFormData(data);
     renderResultsReport();

@@ -332,7 +332,7 @@ textarea:focus {
 }
 
 .results-input-table {
-  min-width: 1320px;
+  min-width: 660px;
 }
 
 .results-input-table th:first-child,
@@ -347,7 +347,7 @@ textarea:focus {
 
 .results-input-table th:not(:first-child),
 .results-input-table td:not(:first-child) {
-  min-width: 105px;
+  min-width: 140px;
 }
 
 .results-input-table input[data-field="name"] {
@@ -534,7 +534,7 @@ input[type="range"] {
 
 .cover-grid {
   display: grid;
-  grid-template-columns: 1fr 2.2in;
+  grid-template-columns: 1fr 3in;
   align-items: stretch;
   gap: 0.5in;
 }
@@ -560,17 +560,17 @@ input[type="range"] {
 
 .logo-box {
   display: grid;
-  min-height: 2.2in;
+  min-height: 2.55in;
   place-items: center;
   align-self: start;
-  padding: 0.22in;
+  padding: 0.08in;
   border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: var(--radius);
 }
 
 .logo-box img {
   max-width: 100%;
-  max-height: 1.55in;
+  max-height: 2.2in;
   object-fit: contain;
 }
 
@@ -991,6 +991,10 @@ canvas {
   .results-input-table th:first-child,
   .results-input-table td:first-child {
     min-width: 220px;
+  }
+
+  .results-input-table {
+    min-width: 660px;
   }
 
   .report-stage {

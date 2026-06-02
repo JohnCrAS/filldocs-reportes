@@ -44,4 +44,4 @@ La sesion queda guardada en el dispositivo y los borradores se guardan bajo esa 
 
 ## Exportar en celular
 
-El boton `Exportar PDF` genera y descarga el PDF directamente desde el navegador. En iPhone/iPad, Safari puede abrir el PDF en una pestaña nueva; desde ahi usa el boton de compartir para guardarlo en Archivos o enviarlo.
+El boton `Exportar PDF` genera el PDF directamente desde el navegador. En Safari/iPhone/iPad intenta abrir la hoja de compartir con el archivo PDF; si Safari no permite compartirlo automaticamente, abre una pestaña con el PDF y un boton `Abrir / compartir PDF`.
