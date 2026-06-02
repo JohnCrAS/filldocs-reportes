@@ -965,6 +965,21 @@ function setupCanvas(canvas) {
   return { ctx, width: rect.width, height: rect.height };
 }
 
+function truncateCanvasText(ctx, text, maxWidth) {
+  const raw = String(text || "");
+  if (ctx.measureText(raw).width <= maxWidth) return raw;
+
+  let fitted = raw;
+  while (fitted.length > 1 && ctx.measureText(`${fitted}...`).width > maxWidth) {
+    fitted = fitted.slice(0, -1);
+  }
+  return fitted.length > 1 ? `${fitted}...` : raw.slice(0, 1);
+}
+
+function fillFittedText(ctx, text, x, y, maxWidth) {
+  ctx.fillText(truncateCanvasText(ctx, text, maxWidth), x, y);
+}
+
 function drawRdcCharts(metrics) {
   drawWeeklyChart(document.querySelector("#weeklyChart"), metrics.weeks);
   drawRadar(document.querySelector("#scoreRadar"), metrics.scoreValues);
@@ -973,6 +988,22 @@ function drawRdcCharts(metrics) {
 function drawResultsCharts(metrics) {
   drawResultsSalesChart(document.querySelector("#resultsSalesChart"), metrics.sellers);
   drawResultsCheckChart(document.querySelector("#resultsCheckChart"), metrics.sellers);
+}
+
+function drawActiveCharts() {
+  if (documentTypeSelect.value === "results") drawResultsCharts(calculateResults(collectResults()));
+  else drawRdcCharts(calculateRdc(collectRdc()));
+}
+
+function waitForFrames(count = 2) {
+  return new Promise((resolve) => {
+    const step = () => {
+      count -= 1;
+      if (count <= 0) resolve();
+      else requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
 }
 
 function drawWeeklyChart(canvas, weeks) {
@@ -1057,14 +1088,27 @@ function drawRadar(canvas, scores) {
     const angle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
     const x = centerX + Math.cos(angle) * radius;
     const y = centerY + Math.sin(angle) * radius;
+    const label = score.label.split(" ")[0];
+    const maxLabelWidth = Math.max(44, width * 0.32);
+    let labelX = x + Math.cos(angle) * 12;
+    let textAlign = x < centerX - 10 ? "right" : x > centerX + 10 ? "left" : "center";
+
+    if (textAlign === "left" && labelX + ctx.measureText(label).width > width - 8) {
+      labelX = width - 8;
+      textAlign = "right";
+    } else if (textAlign === "right" && labelX - ctx.measureText(label).width < 8) {
+      labelX = 8;
+      textAlign = "left";
+    }
+
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
     ctx.lineTo(x, y);
     ctx.stroke();
     ctx.fillStyle = "#171717";
     ctx.font = "700 10px Segoe UI, Arial";
-    ctx.textAlign = x < centerX - 10 ? "right" : x > centerX + 10 ? "left" : "center";
-    ctx.fillText(score.label.split(" ")[0], x + Math.cos(angle) * 12, y + Math.sin(angle) * 12);
+    ctx.textAlign = textAlign;
+    fillFittedText(ctx, label, labelX, y + Math.sin(angle) * 12, maxLabelWidth);
   });
 
   ctx.beginPath();
@@ -1090,7 +1134,7 @@ function drawResultsSalesChart(canvas, sellers) {
   const { ctx, width, height } = setup;
   const rows = sellers.filter((seller) => seller.sales > 0).slice(0, 8);
   const chartRows = rows.length ? rows : sellers.slice(0, 6);
-  const pad = { top: 18, right: 22, bottom: 24, left: 100 };
+  const pad = { top: 18, right: 22, bottom: 24, left: 128 };
   const rowH = (height - pad.top - pad.bottom) / Math.max(chartRows.length, 1);
   const maxSales = Math.max(1, ...chartRows.map((seller) => seller.sales));
 
@@ -1103,12 +1147,14 @@ function drawResultsSalesChart(canvas, sellers) {
     const barW = ((width - pad.left - pad.right) * seller.sales) / maxSales;
     ctx.fillStyle = "#171717";
     ctx.textAlign = "right";
-    ctx.fillText(seller.name.split(" ").slice(0, 2).join(" "), pad.left - 8, y + rowH * 0.32);
+    fillFittedText(ctx, seller.name.split(" ").slice(0, 2).join(" "), pad.left - 8, y + rowH * 0.32, pad.left - 16);
     ctx.fillStyle = "#0e766e";
     ctx.fillRect(pad.left, y, barW, Math.max(8, rowH * 0.46));
     ctx.fillStyle = "#66615c";
-    ctx.textAlign = "left";
-    ctx.fillText(money(seller.sales), pad.left + barW + 6, y + rowH * 0.32);
+    const value = money(seller.sales);
+    const valueX = pad.left + barW + 6;
+    ctx.textAlign = valueX + ctx.measureText(value).width > width - 8 ? "right" : "left";
+    ctx.fillText(value, ctx.textAlign === "right" ? width - 8 : valueX, y + rowH * 0.32);
   });
 }
 
@@ -1118,7 +1164,7 @@ function drawResultsCheckChart(canvas, sellers) {
   const { ctx, width, height } = setup;
   const rows = sellers.filter((seller) => seller.checkAverage > 0).slice(0, 8);
   const chartRows = rows.length ? rows : sellers.slice(0, 6);
-  const pad = { top: 18, right: 26, bottom: 24, left: 100 };
+  const pad = { top: 18, right: 26, bottom: 24, left: 128 };
   const rowH = (height - pad.top - pad.bottom) / Math.max(chartRows.length, 1);
   const maxCheck = Math.max(1, ...chartRows.map((seller) => seller.checkAverage));
 
@@ -1132,14 +1178,16 @@ function drawResultsCheckChart(canvas, sellers) {
     const barW = (trackW * seller.checkAverage) / maxCheck;
     ctx.fillStyle = "#171717";
     ctx.textAlign = "right";
-    ctx.fillText(seller.name.split(" ").slice(0, 2).join(" "), pad.left - 8, y + rowH * 0.32);
+    fillFittedText(ctx, seller.name.split(" ").slice(0, 2).join(" "), pad.left - 8, y + rowH * 0.32, pad.left - 16);
     ctx.fillStyle = "#e6ded0";
     ctx.fillRect(pad.left, y, trackW, Math.max(8, rowH * 0.44));
     ctx.fillStyle = "#315f8a";
     ctx.fillRect(pad.left, y, barW, Math.max(8, rowH * 0.44));
     ctx.fillStyle = "#66615c";
-    ctx.textAlign = "left";
-    ctx.fillText(money(seller.checkAverage), pad.left + barW + 6, y + rowH * 0.32);
+    const value = money(seller.checkAverage);
+    const valueX = pad.left + barW + 6;
+    ctx.textAlign = valueX + ctx.measureText(value).width > width - 8 ? "right" : "left";
+    ctx.fillText(value, ctx.textAlign === "right" ? width - 8 : valueX, y + rowH * 0.32);
   });
 }
 
@@ -1431,7 +1479,9 @@ async function exportPdfDownload() {
     const stage = document.querySelector(".report-stage");
     const previousScale = stage.style.getPropertyValue("--preview-scale");
     stage.style.setProperty("--preview-scale", "1");
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await waitForFrames();
+    drawActiveCharts();
+    await waitForFrames();
 
     const pages = [...report.querySelectorAll(".report-page")];
     const { jsPDF } = window.jspdf;
@@ -1554,8 +1604,7 @@ function bindEvents() {
 
   window.addEventListener("resize", () => {
     setPreviewScale();
-    if (documentTypeSelect.value === "results") drawResultsCharts(calculateResults(collectResults()));
-    else drawRdcCharts(calculateRdc(collectRdc()));
+    drawActiveCharts();
   });
   window.addEventListener("pagehide", persistActiveDraft);
   document.addEventListener("visibilitychange", () => {
