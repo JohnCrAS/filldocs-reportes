@@ -5,7 +5,7 @@ const BRAND_CONFIG = {
     mark: "LC",
     monthlyGoal: 1000000,
     weeklyGoal: 250000,
-    logoPath: "assets/logo-la-calle-mark.webp?v=mark-1",
+    logoPath: "assets/logo-la-calle.webp?v=pptx-logo-2",
   },
 };
 
@@ -61,6 +61,8 @@ const RESULT_SELLERS = [
   "EDIXON GIMENEZ",
   "BRANDO ONTIVEROS",
 ];
+
+const RDC_WEEK_COUNT = 5;
 
 const AUTH_ACCOUNT = {
   username: "Ritchie68",
@@ -157,7 +159,7 @@ function makeDefaultRdc() {
     previousSales: "",
     previousGuests: "",
     previousCheck: "",
-    weeks: Array.from({ length: 4 }, (_, index) => ({
+    weeks: Array.from({ length: RDC_WEEK_COUNT }, (_, index) => ({
       label: `Semana ${index + 1}`,
       sales: "",
       goal: brand.weeklyGoal,
@@ -196,7 +198,7 @@ function makeDefaultResults() {
 }
 
 function buildRdcForm() {
-  weeksBody.innerHTML = Array.from({ length: 4 }, (_, index) => `
+  weeksBody.innerHTML = Array.from({ length: RDC_WEEK_COUNT }, (_, index) => `
     <tr>
       <td><input data-week="${index}" data-field="label" aria-label="Semana ${index + 1}" /></td>
       <td><input data-week="${index}" data-field="sales" type="number" min="0" step="100" aria-label="Venta semana ${index + 1}" /></td>
@@ -272,8 +274,10 @@ function setRdcFormData(data) {
 
   brandSelect.value = data.brand || "la-calle";
 
+  const defaultWeeks = makeDefaultRdc().weeks;
   reportForm.querySelectorAll("[data-week]").forEach((input) => {
-    const week = data.weeks?.[Number(input.dataset.week)] || {};
+    const weekIndex = Number(input.dataset.week);
+    const week = data.weeks?.[weekIndex] || defaultWeeks[weekIndex] || {};
     input.value = week[input.dataset.field] ?? "";
   });
 
@@ -335,7 +339,7 @@ function collectRdc() {
     data[name] = reportForm.elements[name]?.value ?? "";
   });
 
-  data.weeks = Array.from({ length: 4 }, (_, index) => {
+  data.weeks = Array.from({ length: RDC_WEEK_COUNT }, (_, index) => {
     const week = {};
     reportForm.querySelectorAll(`[data-week="${index}"]`).forEach((input) => {
       week[input.dataset.field] = input.value;
@@ -612,7 +616,7 @@ function renderRdcReport() {
         <div class="cover-title">
           <p class="page-kicker">Servicio y recompra</p>
           <h2>Rendición de cuentas</h2>
-          <p>${escapeHtml(brand.name)} · ${escapeHtml(period)}</p>
+          <p>${escapeHtml(period)}</p>
         </div>
         <div>
           <div class="logo-box">
@@ -847,7 +851,7 @@ function renderResultsReport() {
         <div class="cover-title">
           <p class="page-kicker">Concentrado de resultados</p>
           <h2>${escapeHtml(title)}</h2>
-          <p>${escapeHtml(brand.name)} · ${escapeHtml(period)}</p>
+          <p>${escapeHtml(period)}</p>
         </div>
         <div>
           <div class="logo-box">
