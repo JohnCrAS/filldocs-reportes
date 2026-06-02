@@ -263,7 +263,26 @@
               <p class="eyebrow">Vista previa</p>
               <h2>PDF generado</h2>
             </div>
-            <span id="draftStatus">Borrador local</span>
+            <div class="draft-toolbar">
+              <span id="draftStatus">Borrador local</span>
+              <div class="draft-toolbar-actions">
+                <button class="ghost-button draft-toolbar-button" id="explicitSaveButton" type="button">
+                  Guardar
+                </button>
+                <button class="ghost-button draft-toolbar-button" id="downloadBackupButton" type="button">
+                  Descargar respaldo
+                </button>
+                <button class="ghost-button draft-toolbar-button" id="loadBackupButton" type="button">
+                  Cargar respaldo
+                </button>
+                <input
+                  id="backupFileInput"
+                  type="file"
+                  accept=".json,application/json,text/plain"
+                  hidden
+                />
+              </div>
+            </div>
           </div>
           <div class="report-stage">
             <article class="report" id="report"></article>

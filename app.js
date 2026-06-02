@@ -99,8 +99,13 @@ const loginUser = document.querySelector("#loginUser");
 const loginPassword = document.querySelector("#loginPassword");
 const loginError = document.querySelector("#loginError");
 const logoutButton = document.querySelector("#logoutButton");
+const explicitSaveButton = document.querySelector("#explicitSaveButton");
+const downloadBackupButton = document.querySelector("#downloadBackupButton");
+const loadBackupButton = document.querySelector("#loadBackupButton");
+const backupFileInput = document.querySelector("#backupFileInput");
+const BACKUP_FORMAT_VERSION = 1;
 let appReady = false;
-let pendingPdfDelivery = null;
+let pendingFileDelivery = null;
 
 function money(value) {
   const number = Number(value) || 0;
@@ -1296,10 +1301,152 @@ function saveAppState(patch = {}) {
   }));
 }
 
+function formatDraftTime(isoString) {
+  return new Date(isoString).toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function updateDraftStatus(kind = "auto") {
+  const state = loadAppState();
+  if (kind === "explicit" && state.lastExplicitSaveAt) {
+    draftStatus.textContent = `Guardado ✓ ${formatDraftTime(state.lastExplicitSaveAt)}`;
+    return;
+  }
+  if (state.lastExplicitSaveAt) {
+    draftStatus.textContent = `Autoguardado · ${formatDraftTime(state.updatedAt || state.lastExplicitSaveAt)}`;
+    return;
+  }
+  if (state.updatedAt) {
+    draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username} · ${formatDraftTime(state.updatedAt)}`;
+    return;
+  }
+  draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username}`;
+}
+
 function saveDraft(mode, data) {
   localStorage.setItem(STORAGE_KEYS[mode], JSON.stringify(data));
   saveAppState({ activeMode: mode });
-  draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username}`;
+  updateDraftStatus("auto");
+}
+
+function explicitSaveAll() {
+  persistActiveDraft();
+  saveAppState({ lastExplicitSaveAt: new Date().toISOString() });
+  updateDraftStatus("explicit");
+}
+
+function buildBackupPayload() {
+  persistActiveDraft();
+  return {
+    formatVersion: BACKUP_FORMAT_VERSION,
+    app: "filldocs",
+    accountId: AUTH_ACCOUNT.accountId,
+    username: AUTH_ACCOUNT.username,
+    exportedAt: new Date().toISOString(),
+    activeMode: documentTypeSelect.value,
+    appState: loadAppState(),
+    drafts: {
+      rdc: loadDraft("rdc"),
+      results: loadDraft("results"),
+    },
+  };
+}
+
+function backupFileName() {
+  const stamp = new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+  return `filldocs-respaldo-${AUTH_ACCOUNT.accountId}-${stamp}.json`;
+}
+
+function parseBackupJson(rawText) {
+  const parsed = JSON.parse(rawText);
+  if (!parsed || parsed.app !== "filldocs") {
+    throw new Error("El archivo no parece un respaldo de Filldocs.");
+  }
+  if (!parsed.drafts || (!parsed.drafts.rdc && !parsed.drafts.results)) {
+    throw new Error("El respaldo no contiene borradores válidos.");
+  }
+  if (parsed.formatVersion && parsed.formatVersion !== BACKUP_FORMAT_VERSION) {
+    throw new Error("Versión de respaldo no compatible. Actualiza la app e inténtalo de nuevo.");
+  }
+  return parsed;
+}
+
+function applyBackupPayload(backup) {
+  if (backup.drafts.rdc) {
+    localStorage.setItem(STORAGE_KEYS.rdc, JSON.stringify(backup.drafts.rdc));
+  }
+  if (backup.drafts.results) {
+    localStorage.setItem(STORAGE_KEYS.results, JSON.stringify(backup.drafts.results));
+  }
+
+  const restoredState = {
+    ...(backup.appState && typeof backup.appState === "object" ? backup.appState : {}),
+    restoredAt: new Date().toISOString(),
+    lastExplicitSaveAt: backup.exportedAt || new Date().toISOString(),
+  };
+  localStorage.setItem(APP_STATE_KEY, JSON.stringify(restoredState));
+
+  setRdcFormData(loadDraft("rdc"));
+  setResultsFormData(loadDraft("results"));
+
+  const nextMode = backup.activeMode === "results" ? "results" : "rdc";
+  documentTypeSelect.value = nextMode;
+  setMode(nextMode);
+  updateDraftStatus("explicit");
+}
+
+async function handleDownloadBackup() {
+  try {
+    const payload = buildBackupPayload();
+    const json = `${JSON.stringify(payload, null, 2)}\n`;
+    const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+    const filename = backupFileName();
+    const delivered = await deliverFileBlob(blob, filename, {
+      safariTitle: "Respaldo listo",
+      safariHint: "En iPhone usa Compartir y elige Archivos o AirDrop. El botón de descarga directa no funciona en Safari.",
+      safariButtonLabel: "Compartir respaldo",
+      shareText: "Respaldo Filldocs",
+      statusMessage: shouldUseSafariPdfFlow() ? "Respaldo listo para compartir" : "Respaldo descargado",
+    });
+    if (!delivered && shouldUseSafariPdfFlow()) {
+      draftStatus.textContent = "Toca Compartir respaldo abajo";
+    }
+  } catch (error) {
+    console.error(error);
+    window.alert("No se pudo crear el respaldo. Intenta de nuevo.");
+  }
+}
+
+function handleLoadBackupClick() {
+  backupFileInput.value = "";
+  backupFileInput.click();
+}
+
+async function handleBackupFileSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const rawText = await file.text();
+    const backup = parseBackupJson(rawText);
+    const accountNote = backup.accountId && backup.accountId !== AUTH_ACCOUNT.accountId
+      ? "\n\nEste respaldo pertenece a otra cuenta, pero puedes importarlo igual."
+      : "";
+    const ok = window.confirm(
+      `¿Reemplazar los borradores actuales con este respaldo del ${new Date(backup.exportedAt || Date.now()).toLocaleString("es-MX")}?${accountNote}`,
+    );
+    if (!ok) return;
+
+    applyBackupPayload(backup);
+    draftStatus.textContent = `Respaldo cargado ✓ ${formatDraftTime(new Date().toISOString())}`;
+  } catch (error) {
+    console.error(error);
+    window.alert(error instanceof Error ? error.message : "No se pudo leer el respaldo.");
+  } finally {
+    backupFileInput.value = "";
+  }
 }
 
 function loadDraft(mode) {
@@ -1364,7 +1511,7 @@ function setExportBusy(isBusy) {
       : button.dataset.defaultHtml;
   });
   if (isBusy) draftStatus.textContent = "Generando PDF...";
-  else if (draftStatus.textContent === "Generando PDF...") draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username}`;
+  else if (draftStatus.textContent === "Generando PDF...") updateDraftStatus();
 }
 
 async function waitForReportAssets() {
@@ -1387,73 +1534,97 @@ async function waitForReportAssets() {
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
 
-async function sharePdfFile(blob, filename) {
+async function shareFileBlob(blob, filename, mimeType, shareText) {
   if (!navigator.share || !navigator.canShare || typeof File === "undefined") return false;
-  const file = new File([blob], filename, { type: "application/pdf" });
+  const file = new File([blob], filename, { type: mimeType });
   if (!navigator.canShare({ files: [file] })) return false;
   try {
     await navigator.share({
       files: [file],
       title: filename,
-      text: "Reporte PDF",
+      text: shareText,
     });
     return true;
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") return true;
     return false;
   }
 }
 
-function closeSafariPdfPanel() {
-  document.querySelector("#safariPdfPanel")?.remove();
+function closeSafariFilePanel() {
+  document.querySelector("#safariFilePanel")?.remove();
 }
 
-function showSafariPdfReady(blob, filename) {
-  closeSafariPdfPanel();
-  if (pendingPdfDelivery?.url) URL.revokeObjectURL(pendingPdfDelivery.url);
+function showSafariFileReady(blob, filename, options = {}) {
+  const {
+    mimeType = "application/octet-stream",
+    shareText = filename,
+    title = "Archivo listo",
+    hint = "En Safari toca el botón para abrirlo o compartirlo.",
+    buttonLabel = "Abrir / compartir",
+  } = options;
+
+  closeSafariFilePanel();
+  if (pendingFileDelivery?.url) URL.revokeObjectURL(pendingFileDelivery.url);
   const url = URL.createObjectURL(blob);
-  pendingPdfDelivery = { blob, filename, url };
+  pendingFileDelivery = { blob, filename, url };
 
   const panel = document.createElement("div");
-  panel.className = "pdf-ready-panel";
-  panel.id = "safariPdfPanel";
+  panel.className = "file-ready-panel";
+  panel.id = "safariFilePanel";
   panel.innerHTML = `
     <div>
-      <strong>PDF listo</strong>
-      <span>En Safari toca el botón para abrirlo o compartirlo.</span>
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(hint)}</span>
     </div>
-    <button class="primary-button" type="button" data-open-pdf>Abrir / compartir PDF</button>
-    <button class="ghost-button pdf-ready-close" type="button" aria-label="Cerrar">×</button>
+    <button class="primary-button" type="button" data-open-file>${escapeHtml(buttonLabel)}</button>
+    <button class="ghost-button file-ready-close" type="button" aria-label="Cerrar">×</button>
   `;
 
-  panel.querySelector("[data-open-pdf]").addEventListener("click", async () => {
-    const delivered = await sharePdfFile(blob, filename);
+  panel.querySelector("[data-open-file]").addEventListener("click", async () => {
+    const delivered = await shareFileBlob(blob, filename, mimeType, shareText);
     if (!delivered) {
       const opened = window.open(url, "_blank", "noopener");
       if (!opened) window.location.href = url;
     } else {
-      closeSafariPdfPanel();
+      closeSafariFilePanel();
     }
   });
-  panel.querySelector(".pdf-ready-close").addEventListener("click", closeSafariPdfPanel);
+  panel.querySelector(".file-ready-close").addEventListener("click", closeSafariFilePanel);
   document.body.appendChild(panel);
 
   window.setTimeout(() => {
-    if (pendingPdfDelivery?.url === url) {
+    if (pendingFileDelivery?.url === url) {
       URL.revokeObjectURL(url);
-      pendingPdfDelivery = null;
-      closeSafariPdfPanel();
+      pendingFileDelivery = null;
+      closeSafariFilePanel();
     }
   }, 300000);
 }
 
-async function deliverPdfBlob(blob, filename) {
+async function deliverFileBlob(blob, filename, options = {}) {
+  const mimeType = blob.type || "application/octet-stream";
+  const {
+    safariTitle = "Archivo listo",
+    safariHint = "En Safari toca el botón para abrirlo o compartirlo.",
+    safariButtonLabel = "Abrir / compartir",
+    shareText = filename,
+    statusMessage = "",
+  } = options;
+
   if (shouldUseSafariPdfFlow()) {
-    showSafariPdfReady(blob, filename);
-    return;
+    showSafariFileReady(blob, filename, {
+      mimeType,
+      shareText,
+      title: safariTitle,
+      hint: safariHint,
+      buttonLabel: safariButtonLabel,
+    });
+    if (statusMessage) draftStatus.textContent = statusMessage;
+    return true;
   }
 
   const url = URL.createObjectURL(blob);
-
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
@@ -1461,12 +1632,13 @@ async function deliverPdfBlob(blob, filename) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-
   window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  if (statusMessage) draftStatus.textContent = statusMessage;
+  return true;
 }
 
 async function exportPdfDownload() {
-  closeSafariPdfPanel();
+  closeSafariFilePanel();
   setExportBusy(true);
   try {
     if (!window.html2canvas || !window.jspdf?.jsPDF) {
@@ -1519,8 +1691,13 @@ async function exportPdfDownload() {
     else setPreviewScale();
 
     const blob = pdf.output("blob");
-    await deliverPdfBlob(blob, pdfFileName());
-    draftStatus.textContent = shouldUseSafariPdfFlow() ? "PDF listo para abrir" : "PDF generado";
+    await deliverFileBlob(blob, pdfFileName(), {
+      safariTitle: "PDF listo",
+      safariHint: "En Safari toca el botón para abrirlo o compartirlo.",
+      safariButtonLabel: "Abrir / compartir PDF",
+      shareText: "Reporte PDF",
+      statusMessage: shouldUseSafariPdfFlow() ? "PDF listo para abrir" : "PDF generado",
+    });
   } catch {
     window.alert("No se pudo descargar el PDF automáticamente. Se abrirá el diálogo de impresión para guardar como PDF.");
     renderActive();
@@ -1536,7 +1713,7 @@ function setMode(mode) {
   resultsForm.classList.toggle("is-hidden", mode !== "results");
   topbarTitle.textContent = mode === "results" ? "Resultados 2026" : "Rendición de cuentas";
   saveAppState({ activeMode: mode });
-  draftStatus.textContent = `Guardado en ${AUTH_ACCOUNT.username}`;
+  updateDraftStatus();
   renderActive();
 }
 
@@ -1546,6 +1723,7 @@ function resetActiveDraft() {
   if (mode === "results") setResultsFormData(makeDefaultResults());
   else setRdcFormData(makeDefaultRdc());
   renderActive();
+  updateDraftStatus();
 }
 
 function debounce(fn, delay = 180) {
@@ -1627,6 +1805,11 @@ function bindEvents() {
     if (ok) resetActiveDraft();
   });
 
+  explicitSaveButton.addEventListener("click", explicitSaveAll);
+  downloadBackupButton.addEventListener("click", handleDownloadBackup);
+  loadBackupButton.addEventListener("click", handleLoadBackupClick);
+  backupFileInput.addEventListener("change", handleBackupFileSelected);
+
   window.addEventListener("resize", () => {
     setPreviewScale();
     drawActiveCharts();
@@ -1657,6 +1840,7 @@ function initializeApp() {
     ? requestedMode
     : (savedMode === "results" ? "results" : "rdc");
   setMode(initialMode);
+  updateDraftStatus(loadAppState().lastExplicitSaveAt ? "explicit" : "auto");
 }
 
 function bootstrap() {
